@@ -19,5 +19,6 @@ export async function GET(request) {
     hasImage: result.hasImage,
     photoCount: result.photoCount,
     author: result.author,
+    mediaUrl: result.mediaUrl,
   });
 }

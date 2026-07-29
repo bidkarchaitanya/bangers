@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Tweet } from "react-tweet";
 
 function parseTweetId(input) {
   const raw = input.trim();
@@ -28,7 +27,7 @@ async function readJson(res) {
 
 export default function TweetSubmit() {
   const [value, setValue] = useState("");
-  const [id, setId] = useState(null);
+  const [preview, setPreview] = useState(null); // { id, author, mediaUrl }
   const [error, setError] = useState(null);
   const [checking, setChecking] = useState(false);
   const [submitState, setSubmitState] = useState(null); // null | "sending" | "pending" | "already-submitted"
@@ -38,12 +37,12 @@ export default function TweetSubmit() {
     const parsed = parseTweetId(value);
     if (!parsed) {
       setError("Paste a tweet link like https://x.com/user/status/123…");
-      setId(null);
+      setPreview(null);
       return;
     }
     setError(null);
     setSubmitState(null);
-    setId(null);
+    setPreview(null);
     setChecking(true);
     try {
       const res = await fetch(`/api/tweet-check?id=${parsed}`);
@@ -54,7 +53,11 @@ export default function TweetSubmit() {
           "Only tweets with images or videos can go on the board. Pick one with a visual."
         );
       }
-      setId(parsed);
+      setPreview({
+        id: parsed,
+        author: json.author || null,
+        mediaUrl: json.mediaUrl || null,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,12 +66,13 @@ export default function TweetSubmit() {
   }
 
   async function submitToBoard() {
+    if (!preview?.id) return;
     setSubmitState("sending");
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id: preview.id }),
       });
       const json = await readJson(res);
       if (!res.ok) throw new Error(json.error || "Submission failed");
@@ -113,40 +117,63 @@ export default function TweetSubmit() {
         {error && <>ERR / {error}</>}
       </div>
 
-      {id && (
-        <div className="preview preview--tweet" data-theme="light">
-          <header className="preview__head">
-            <span className="preview__url">x.com / status / {id}</span>
-            <span className="preview__stamp">
-              <span className="dot" aria-hidden="true" />
-              Certified Banger
-            </span>
-          </header>
-          <div className="tweet-wrap tweet-wrap--single">
-            <Tweet id={id} />
-          </div>
-          <div className="submit__actions">
-            {submitState === "pending" ? (
-              <span className="microlabel">
-                Submitted — on the board once approved
-              </span>
-            ) : submitState === "already-submitted" ? (
-              <span className="microlabel">Already submitted</span>
+      {preview && (
+        <div className="pull-preview" data-theme="light">
+          <a
+            className="pull-preview__media"
+            href={`https://x.com/${preview.author || "i"}/status/${preview.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {preview.mediaUrl ? (
+              <img
+                src={preview.mediaUrl}
+                alt={
+                  preview.author
+                    ? `Media from @${preview.author}`
+                    : "Tweet media"
+                }
+              />
             ) : (
-              <>
-                <button
-                  className="submit__btn"
-                  type="button"
-                  disabled={submitState === "sending"}
-                  onClick={submitToBoard}
-                >
-                  {submitState === "sending"
-                    ? "Submitting"
-                    : "Submit to the board"}
-                </button>
-                <span className="microlabel">Goes live once approved</span>
-              </>
+              <div className="pull-preview__placeholder" aria-hidden="true" />
             )}
+          </a>
+
+          <div className="pull-preview__body">
+            <div className="pull-preview__meta">
+              <span className="preview__stamp">
+                <span className="dot" aria-hidden="true" />
+                Certified Banger
+              </span>
+              <span className="pull-preview__author">
+                {preview.author ? `@${preview.author}` : "Tweet"}
+              </span>
+              <span className="preview__url">status / {preview.id}</span>
+            </div>
+
+            <div className="pull-preview__actions">
+              {submitState === "pending" ? (
+                <span className="microlabel">
+                  Submitted — on the board once approved
+                </span>
+              ) : submitState === "already-submitted" ? (
+                <span className="microlabel">Already submitted</span>
+              ) : (
+                <>
+                  <button
+                    className="submit__btn"
+                    type="button"
+                    disabled={submitState === "sending"}
+                    onClick={submitToBoard}
+                  >
+                    {submitState === "sending"
+                      ? "Submitting"
+                      : "Submit to the board"}
+                  </button>
+                  <span className="microlabel">Goes live once approved</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -8,10 +8,7 @@ export const dynamic = "force-dynamic";
 // Hand-picked seeds. Paste tweet IDs here (the number at the end of a tweet URL).
 // e.g. https://x.com/jack/status/20 -> "20"
 // Approved submissions from /admin are added automatically.
-const SEEDS = [
-  "20",
-  "1628832338187636740",
-];
+const SEEDS = [];
 
 function TweetSkeleton() {
   return <div className="tweet-skeleton" aria-hidden="true" />;

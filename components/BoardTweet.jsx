@@ -1,11 +1,20 @@
 import { getTweet } from "react-tweet/api";
-import { EmbeddedTweet, TweetNotFound } from "react-tweet";
 
-// Renders a board tweet with its media guaranteed:
-// 1. Fetches the live tweet and renders it in full (photos/videos inline).
-// 2. If the live fetch fails but we captured the media at submission time,
-//    shows the stored media image linking to the tweet.
-// 3. Only if neither exists, shows the not-found card.
+function mediaFromTweet(tweet) {
+  if (!tweet) return null;
+  return (
+    tweet.photos?.[0]?.url ||
+    tweet.video?.poster ||
+    tweet.mediaDetails?.[0]?.media_url_https ||
+    null
+  );
+}
+
+function authorFromTweet(tweet) {
+  return tweet?.user?.screen_name || null;
+}
+
+// Media-first board card: image dominates, author is the only copy.
 export default async function BoardTweet({ id, mediaUrl, author }) {
   let tweet = null;
   try {
@@ -14,28 +23,30 @@ export default async function BoardTweet({ id, mediaUrl, author }) {
     // fall through to stored media
   }
 
-  if (tweet) {
-    return <EmbeddedTweet tweet={tweet} />;
-  }
+  const src = mediaUrl || mediaFromTweet(tweet);
+  const handle = author || authorFromTweet(tweet);
+  const href = `https://x.com/${handle || "i"}/status/${id}`;
 
-  if (mediaUrl) {
+  if (!src) {
     return (
-      <a
-        className="media-fallback"
-        href={`https://x.com/${author || "i"}/status/${id}`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <img src={mediaUrl} alt={`Tweet media${author ? ` by @${author}` : ""}`} loading="lazy" />
-        <span className="media-fallback__bar">
-          <span className="microlabel">
-            {author ? `@${author}` : "View on X"} / {id}
-          </span>
-          <span className="dot" aria-hidden="true" />
-        </span>
+      <a className="board-card board-card--empty" href={href} target="_blank" rel="noopener noreferrer">
+        <span className="microlabel">{handle ? `@${handle}` : "View on X"}</span>
       </a>
     );
   }
 
-  return <TweetNotFound />;
+  return (
+    <a className="board-card" href={href} target="_blank" rel="noopener noreferrer">
+      <img
+        className="board-card__media"
+        src={src}
+        alt={handle ? `Visual from @${handle}` : "Board visual"}
+        loading="lazy"
+      />
+      <span className="board-card__bar">
+        <span className="board-card__author">{handle ? `@${handle}` : "View on X"}</span>
+        <span className="dot" aria-hidden="true" />
+      </span>
+    </a>
+  );
 }

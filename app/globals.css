@@ -514,16 +514,69 @@ button {
 
 .board {
   columns: 3;
-  column-gap: 20px;
+  column-gap: 18px;
 }
 
 .board > .tweet-wrap {
   break-inside: avoid;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .preview--tweet .tweet-wrap {
   padding: 12px 16px 16px;
+}
+
+.board-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.board-card:hover {
+  border-color: var(--ink);
+  transform: translateY(-2px);
+}
+
+.board-card__media {
+  width: 100%;
+  display: block;
+  vertical-align: top;
+}
+
+.board-card__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.board-card__author {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-card:hover .board-card__author {
+  color: var(--ink);
+}
+
+.board-card--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
 }
 
 /* ---------- compact pull-in preview ---------- */
@@ -672,7 +725,7 @@ button {
 }
 
 .tweet-skeleton {
-  height: 320px;
+  height: 280px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);

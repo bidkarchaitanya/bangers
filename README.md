@@ -11,7 +11,7 @@ An inspiration board of the best of design Twitter. Nothing-inspired design lang
 
 - **Visual tweets only**: submissions are checked (client and server-side, via Twitter's syndication data) and rejected unless the tweet contains at least one photo, video, or GIF. The media previews in the pull-in card, on the admin desk, and on the board.
 - `/admin` — **The Desk**: review submissions. Visitors pull in a tweet and hit "Submit to the board"; it lands in your pending queue. Approve → it appears on the board; reject → gone. You can also remove approved tweets.
-- Passcode: set `ADMIN_KEY` in `.env.local` (defaults to `bangers-admin` — change it before deploying).
+- Passcode: set `ADMIN_KEY` in `.env.local` (required — also set it as an env var on your host before deploying).
 - Seed tweets: edit `SEEDS` in `app/page.js` (the number at the end of a tweet URL).
 - Sites: edit `PICKS` in `app/sites/page.js`.
 

@@ -3,6 +3,22 @@
 import { useState } from "react";
 import { Tweet } from "react-tweet";
 
+async function readJson(res) {
+  const text = await res.text();
+  if (!text) {
+    throw new Error(
+      res.ok
+        ? "Empty response from server"
+        : `Server error (${res.status}). Try again.`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Server error (${res.status}). Try again.`);
+  }
+}
+
 export default function AdminPage() {
   const [key, setKey] = useState("");
   const [authed, setAuthed] = useState(false);
@@ -13,7 +29,7 @@ export default function AdminPage() {
 
   async function load(k) {
     const res = await fetch(`/api/admin?key=${encodeURIComponent(k)}`);
-    const json = await res.json();
+    const json = await readJson(res);
     if (!res.ok) throw new Error(json.error || "Failed to load");
     setPending(json.pending);
     setApproved(json.approved);
@@ -39,7 +55,8 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action, key }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      const json = await readJson(res);
+      if (!res.ok) throw new Error(json.error || "Failed");
       await load(key);
     } catch (err) {
       setError(err.message);

@@ -10,6 +10,22 @@ function parseTweetId(input) {
   return m ? m[1] : null;
 }
 
+async function readJson(res) {
+  const text = await res.text();
+  if (!text) {
+    throw new Error(
+      res.ok
+        ? "Empty response from server"
+        : `Server error (${res.status}). Try again.`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Server error (${res.status}). Try again.`);
+  }
+}
+
 export default function TweetSubmit() {
   const [value, setValue] = useState("");
   const [id, setId] = useState(null);
@@ -21,7 +37,7 @@ export default function TweetSubmit() {
     e.preventDefault();
     const parsed = parseTweetId(value);
     if (!parsed) {
-      setError("Paste a tweet link like x.com/user/status/123…");
+      setError("Paste a tweet link like https://x.com/user/status/123…");
       setId(null);
       return;
     }
@@ -31,7 +47,7 @@ export default function TweetSubmit() {
     setChecking(true);
     try {
       const res = await fetch(`/api/tweet-check?id=${parsed}`);
-      const json = await res.json();
+      const json = await readJson(res);
       if (!res.ok) throw new Error(json.error || "Couldn't verify that tweet");
       if (!json.hasImage) {
         throw new Error(
@@ -54,7 +70,7 @@ export default function TweetSubmit() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const json = await res.json();
+      const json = await readJson(res);
       if (!res.ok) throw new Error(json.error || "Submission failed");
       setSubmitState(json.status);
     } catch (err) {
@@ -66,14 +82,13 @@ export default function TweetSubmit() {
   return (
     <div className="submit" id="submit">
       <form className="submit__bar" onSubmit={pull}>
-        <span className="submit__prefix">x.com/</span>
         <input
           className="submit__input"
           type="text"
           inputMode="url"
           autoComplete="off"
           spellCheck={false}
-          placeholder="user/status/1234567890"
+          placeholder="https://x.com/user/status/1234567890"
           aria-label="Tweet URL or ID"
           value={value}
           onChange={(e) => setValue(e.target.value)}

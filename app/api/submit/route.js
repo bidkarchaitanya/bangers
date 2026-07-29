@@ -40,6 +40,13 @@ export async function POST(request) {
     author: check.author || null,
     submittedAt: new Date().toISOString(),
   });
-  await writeStore(store);
+  try {
+    await writeStore(store);
+  } catch {
+    return NextResponse.json(
+      { error: "Couldn't save submission. Try again." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ status: "pending" });
 }

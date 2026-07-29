@@ -58,6 +58,13 @@ export async function POST(request) {
     store.approved = store.approved.filter((t) => t.id !== id);
   }
 
-  await writeStore(store);
+  try {
+    await writeStore(store);
+  } catch {
+    return NextResponse.json(
+      { error: "Couldn't save changes. Try again." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ ok: true });
 }

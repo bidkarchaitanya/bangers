@@ -31,9 +31,11 @@ export default async function Page() {
             <a className="nav__link" href="#board">
               Board
             </a>
+            {/* Sites — hidden for now; route still at /sites
             <a className="nav__link" href="/sites">
               Sites
             </a>
+            */}
             <a className="nav__link" href="#about">
               About
             </a>

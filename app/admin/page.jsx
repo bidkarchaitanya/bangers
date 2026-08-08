@@ -19,24 +19,35 @@ async function readJson(res) {
   }
 }
 
+function formatWhen(iso) {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("en", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return "—";
+  }
+}
+
 function TagPicker({ selected, onChange, disabled }) {
   function toggle(tag) {
-    if (selected.includes(tag)) {
-      onChange(selected.filter((t) => t !== tag));
-    } else if (selected.length < 6) {
-      onChange([...selected, tag]);
-    }
+    if (selected.includes(tag)) onChange(selected.filter((t) => t !== tag));
+    else if (selected.length < 6) onChange([...selected, tag]);
   }
 
   return (
-    <div className="cms-tags" role="group" aria-label="Design tags">
+    <div className="wf-tags" role="group" aria-label="Design tags">
       {DESIGN_TAGS.map((tag) => {
         const on = selected.includes(tag);
         return (
           <button
             key={tag}
             type="button"
-            className={`cms-tag ${on ? "cms-tag--on" : ""}`}
+            className={`wf-chip ${on ? "wf-chip--on" : ""}`}
             aria-pressed={on}
             disabled={disabled}
             onClick={() => toggle(tag)}
@@ -49,63 +60,82 @@ function TagPicker({ selected, onChange, disabled }) {
   );
 }
 
-function CmsCard({
+function Inspector({
   item,
   mode,
   busy,
+  onClose,
   onApprove,
   onReject,
   onUpdate,
   onRemove,
 }) {
-  const [tags, setTags] = useState(item.tags || []);
-  const [description, setDescription] = useState(item.description || "");
+  const [tags, setTags] = useState(item?.tags || []);
+  const [description, setDescription] = useState(item?.description || "");
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    setTags(item.tags || []);
-    setDescription(item.description || "");
+    setTags(item?.tags || []);
+    setDescription(item?.description || "");
     setDirty(false);
-  }, [item.id, item.tags, item.description]);
+  }, [item?.id, item?.tags, item?.description]);
 
-  const media = item.mediaUrl;
+  if (!item) {
+    return (
+      <aside className="wf-inspector wf-inspector--empty">
+        <p className="wf-muted">Select an item to edit fields</p>
+      </aside>
+    );
+  }
+
   const isBusy = busy === item.id;
+  const title = item.author ? `@${item.author}` : "Untitled item";
 
   return (
-    <article className="cms-card">
-      <a
-        className="cms-card__media"
-        href={`https://x.com/${item.author || "i"}/status/${item.id}`}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {media ? (
-          <img src={media} alt="" loading="lazy" />
+    <aside className="wf-inspector">
+      <header className="wf-inspector__head">
+        <div>
+          <p className="wf-kicker">Item</p>
+          <h2 className="wf-inspector__title">{title}</h2>
+        </div>
+        <button type="button" className="wf-iconbtn" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      </header>
+
+      <div className="wf-inspector__preview">
+        {item.mediaUrl ? (
+          <img src={item.mediaUrl} alt="" />
         ) : (
-          <div className="cms-card__placeholder" aria-hidden="true" />
+          <div className="wf-thumb wf-thumb--lg" />
         )}
-      </a>
+      </div>
 
-      <div className="cms-card__body">
-        <header className="cms-card__head">
-          <div>
-            <p className="cms-card__author">
-              {item.author ? `@${item.author}` : "Unknown author"}
-            </p>
-            <p className="cms-card__id">status / {item.id}</p>
+      <div className="wf-fields">
+        <label className="wf-field">
+          <span>Name</span>
+          <input className="wf-input" value={title} readOnly />
+        </label>
+
+        <label className="wf-field">
+          <span>Slug</span>
+          <input className="wf-input" value={item.id} readOnly />
+        </label>
+
+        <label className="wf-field">
+          <span>Status</span>
+          <div className={`wf-status ${mode === "inbox" ? "wf-status--draft" : "wf-status--live"}`}>
+            {mode === "inbox" ? "Draft" : "Published"}
           </div>
-          <span className="microlabel">
-            {mode === "inbox" ? "Inbox" : "Live"}
-          </span>
-        </header>
+        </label>
 
-        <label className="cms-field">
-          <span className="microlabel">Description</span>
+        <label className="wf-field">
+          <span>Description</span>
           <textarea
-            className="cms-textarea"
-            rows={3}
+            className="wf-textarea"
+            rows={4}
             maxLength={280}
-            placeholder="Optional curator note — why this is a banger"
+            placeholder="Add a short curator note…"
             value={description}
             disabled={isBusy}
             onChange={(e) => {
@@ -113,11 +143,11 @@ function CmsCard({
               setDirty(true);
             }}
           />
-          <span className="cms-field__hint">{description.length}/280</span>
+          <em>{description.length}/280</em>
         </label>
 
-        <div className="cms-field">
-          <span className="microlabel">Design tags</span>
+        <div className="wf-field">
+          <span>Design tags</span>
           <TagPicker
             selected={tags}
             disabled={isBusy}
@@ -127,53 +157,58 @@ function CmsCard({
             }}
           />
         </div>
-
-        <div className="cms-card__actions">
-          {mode === "inbox" ? (
-            <>
-              <button
-                className="submit__btn"
-                type="button"
-                disabled={isBusy || tags.length === 0}
-                onClick={() => onApprove(item.id, tags, description)}
-              >
-                {isBusy ? "Publishing" : "Publish to board"}
-              </button>
-              <button
-                className="btn-ghost"
-                type="button"
-                disabled={isBusy}
-                onClick={() => onReject(item.id)}
-              >
-                Reject
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="submit__btn"
-                type="button"
-                disabled={isBusy || !dirty || tags.length === 0}
-                onClick={() => onUpdate(item.id, tags, description)}
-              >
-                {isBusy ? "Saving" : "Save changes"}
-              </button>
-              <button
-                className="btn-ghost"
-                type="button"
-                disabled={isBusy}
-                onClick={() => onRemove(item.id)}
-              >
-                Remove
-              </button>
-            </>
-          )}
-        </div>
-        {mode === "inbox" && tags.length === 0 && (
-          <p className="microlabel cms-hint">Pick at least one design tag to publish.</p>
-        )}
       </div>
-    </article>
+
+      <footer className="wf-inspector__foot">
+        {mode === "inbox" ? (
+          <>
+            <button
+              type="button"
+              className="wf-btn wf-btn--primary"
+              disabled={isBusy || tags.length === 0}
+              onClick={() => onApprove(item.id, tags, description)}
+            >
+              {isBusy ? "Publishing…" : "Publish"}
+            </button>
+            <button
+              type="button"
+              className="wf-btn"
+              disabled={isBusy}
+              onClick={() => onReject(item.id)}
+            >
+              Reject
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="wf-btn wf-btn--primary"
+              disabled={isBusy || !dirty || tags.length === 0}
+              onClick={() => onUpdate(item.id, tags, description)}
+            >
+              {isBusy ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              className="wf-btn wf-btn--danger"
+              disabled={isBusy}
+              onClick={() => onRemove(item.id)}
+            >
+              Delete
+            </button>
+          </>
+        )}
+        <a
+          className="wf-btn"
+          href={`https://x.com/${item.author || "i"}/status/${item.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open on X
+        </a>
+      </footer>
+    </aside>
   );
 }
 
@@ -185,9 +220,10 @@ export default function AdminPage() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
-  const [tab, setTab] = useState("inbox");
+  const [collection, setCollection] = useState("published");
   const [query, setQuery] = useState("");
   const [filterTag, setFilterTag] = useState("All");
+  const [selectedId, setSelectedId] = useState(null);
   const [booting, setBooting] = useState(true);
   const [seeding, setSeeding] = useState(false);
 
@@ -240,6 +276,7 @@ export default function AdminPage() {
     setPending([]);
     setApproved([]);
     setStats(null);
+    setSelectedId(null);
   }
 
   async function mutate(payload) {
@@ -255,6 +292,9 @@ export default function AdminPage() {
       const json = await readJson(res);
       if (!res.ok) throw new Error(json.error || "Failed");
       await load();
+      if (payload.action === "reject" || payload.action === "remove") {
+        setSelectedId(null);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -275,7 +315,7 @@ export default function AdminPage() {
       const json = await readJson(res);
       if (!res.ok) throw new Error(json.error || "Couldn't load demo data");
       await load();
-      setTab(json.addedPending > 0 ? "inbox" : "library");
+      setCollection(json.addedPending > 0 ? "drafts" : "published");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -283,9 +323,10 @@ export default function AdminPage() {
     }
   }
 
-  const library = useMemo(() => {
+  const rows = useMemo(() => {
+    const source = collection === "drafts" ? pending : approved;
     const q = query.trim().toLowerCase();
-    return approved.filter((item) => {
+    return source.filter((item) => {
       const tagOk =
         filterTag === "All" || (item.tags || []).includes(filterTag);
       if (!tagOk) return false;
@@ -297,236 +338,258 @@ export default function AdminPage() {
         item.id.includes(q)
       );
     });
-  }, [approved, query, filterTag]);
+  }, [collection, pending, approved, query, filterTag]);
+
+  const selected = useMemo(() => {
+    const source = collection === "drafts" ? pending : approved;
+    return source.find((t) => t.id === selectedId) || null;
+  }, [collection, pending, approved, selectedId]);
+
+  useEffect(() => {
+    if (selectedId && !rows.some((r) => r.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [rows, selectedId]);
 
   if (booting) {
     return (
-      <>
-        <nav className="nav">
-          <div className="container nav__inner">
-            <a href="/" className="wordmark">
-              Bangers<span className="dot" aria-hidden="true" />
-            </a>
-            <span className="microlabel">CMS / Loading</span>
+      <div className="wf-shell wf-shell--boot">
+        <p className="wf-muted">Loading CMS…</p>
+      </div>
+    );
+  }
+
+  if (!authed) {
+    return (
+      <div className="wf-shell wf-shell--login">
+        <form className="wf-login" onSubmit={unlock}>
+          <div className="wf-login__brand">
+            <span className="wf-logo">B</span>
+            <div>
+              <p className="wf-kicker">Bangers</p>
+              <h1>CMS</h1>
+            </div>
           </div>
-        </nav>
-        <main className="cms">
-          <div className="container">
-            <p className="microlabel">Checking session…</p>
-          </div>
-        </main>
-      </>
+          <p className="wf-login__copy">
+            Collections, fields, and publishing — structured like Webflow &amp;
+            Framer for client demos.
+          </p>
+          <label className="wf-field">
+            <span>Passcode</span>
+            <input
+              className="wf-input"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter passcode"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              required
+            />
+          </label>
+          <button className="wf-btn wf-btn--primary wf-btn--block" type="submit">
+            Continue
+          </button>
+          {error && <p className="wf-error">{error}</p>}
+        </form>
+      </div>
     );
   }
 
   return (
-    <>
-      <nav className="nav">
-        <div className="container nav__inner">
-          <a href="/" className="wordmark">
-            Bangers<span className="dot" aria-hidden="true" />
-          </a>
-          <div className="nav__links">
-            <span className="microlabel">CMS / Content desk</span>
-            {authed && (
-              <>
-                <a className="nav__link" href="/" target="_blank" rel="noreferrer">
-                  View site
-                </a>
-                <button className="nav__link cms-linkbtn" type="button" onClick={logout}>
-                  Sign out
-                </button>
-              </>
-            )}
+    <div className="wf-shell">
+      <aside className="wf-sidebar">
+        <div className="wf-sidebar__brand">
+          <span className="wf-logo">B</span>
+          <div>
+            <strong>Bangers</strong>
+            <span>CMS</span>
           </div>
         </div>
-      </nav>
 
-      <main className="cms">
-        <div className="container">
-          {!authed ? (
-            <section className="cms-login">
-              <div className="cms-login__copy">
-                <span className="microlabel">
-                  <span className="dot dot--blink" aria-hidden="true" />
-                  Secure content management
-                </span>
-                <h1 className="cms-login__title">
-                  The Desk<span className="period">.</span>
-                </h1>
-                <p className="cms-login__sub">
-                  Review submissions, tag by design type, add curator notes, and
-                  publish to the live board — built for client demos of a modern
-                  CMS workflow.
-                </p>
-              </div>
-              <form className="cms-login__form" onSubmit={unlock}>
-                <label className="cms-field">
-                  <span className="microlabel">Passcode</span>
-                  <input
-                    className="cms-input"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="Enter admin passcode"
-                    aria-label="Admin passcode"
-                    value={key}
-                    onChange={(e) => setKey(e.target.value)}
-                    required
-                  />
-                </label>
-                <button className="submit__btn" type="submit">
-                  Enter CMS
-                </button>
-                {error && (
-                  <p className="microlabel submit__status--error">ERR / {error}</p>
-                )}
-              </form>
-            </section>
-          ) : (
-            <>
-              <header className="cms-hero">
-                <div>
-                  <span className="microlabel">Bangers CMS</span>
-                  <h1 className="cms-hero__title">
-                    Content desk<span className="period">.</span>
-                  </h1>
-                  <p className="cms-hero__sub">
-                    Curate visual tweets, classify by design discipline, and ship
-                    to production with notes your clients can understand.
-                  </p>
-                  <button
-                    className="btn-ghost cms-demo-btn"
-                    type="button"
-                    disabled={seeding}
-                    onClick={loadDemoData}
-                  >
-                    {seeding ? "Loading demo…" : "Load demo content"}
-                  </button>
-                </div>
-                <div className="cms-stats">
-                  <div className="cms-stat">
-                    <strong>{String(stats?.pending ?? pending.length).padStart(2, "0")}</strong>
-                    <span className="microlabel">Inbox</span>
-                  </div>
-                  <div className="cms-stat">
-                    <strong>{String(stats?.approved ?? approved.length).padStart(2, "0")}</strong>
-                    <span className="microlabel">Live</span>
-                  </div>
-                  <div className="cms-stat">
-                    <strong>
-                      {String(Object.keys(stats?.tags || {}).length).padStart(2, "0")}
-                    </strong>
-                    <span className="microlabel">Tags used</span>
-                  </div>
-                </div>
-              </header>
+        <p className="wf-sidebar__label">Collections</p>
+        <nav className="wf-nav">
+          <button
+            type="button"
+            className={`wf-nav__item ${collection === "published" ? "wf-nav__item--on" : ""}`}
+            onClick={() => {
+              setCollection("published");
+              setSelectedId(null);
+              setFilterTag("All");
+            }}
+          >
+            <span>Board</span>
+            <em>{approved.length}</em>
+          </button>
+          <button
+            type="button"
+            className={`wf-nav__item ${collection === "drafts" ? "wf-nav__item--on" : ""}`}
+            onClick={() => {
+              setCollection("drafts");
+              setSelectedId(null);
+              setFilterTag("All");
+            }}
+          >
+            <span>Drafts</span>
+            <em>{pending.length}</em>
+          </button>
+        </nav>
 
-              <div className="cms-tabs" role="tablist">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === "inbox"}
-                  className={`cms-tab ${tab === "inbox" ? "cms-tab--on" : ""}`}
-                  onClick={() => setTab("inbox")}
-                >
-                  Inbox
-                  <span>{pending.length}</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === "library"}
-                  className={`cms-tab ${tab === "library" ? "cms-tab--on" : ""}`}
-                  onClick={() => setTab("library")}
-                >
-                  Library
-                  <span>{approved.length}</span>
-                </button>
-              </div>
-
-              {error && (
-                <p className="microlabel submit__status--error" style={{ marginBottom: 18 }}>
-                  ERR / {error}
-                </p>
-              )}
-
-              {tab === "inbox" && (
-                <section className="cms-section">
-                  {pending.length === 0 ? (
-                    <div className="cms-empty">
-                      <p className="microlabel">Queue clear</p>
-                      <p>Nothing waiting for review. New public submissions land here.</p>
-                    </div>
-                  ) : (
-                    <div className="cms-list">
-                      {pending.map((item) => (
-                        <CmsCard
-                          key={item.id}
-                          item={item}
-                          mode="inbox"
-                          busy={busy}
-                          onApprove={(id, tags, description) =>
-                            mutate({ action: "approve", id, tags, description })
-                          }
-                          onReject={(id) => mutate({ action: "reject", id })}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
-
-              {tab === "library" && (
-                <section className="cms-section">
-                  <div className="cms-toolbar">
-                    <input
-                      className="cms-input cms-input--search"
-                      type="search"
-                      placeholder="Search author, tag, note, or ID"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                    />
-                    <div className="cms-filter">
-                      {["All", ...DESIGN_TAGS].map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          className={`cms-tag ${filterTag === tag ? "cms-tag--on" : ""}`}
-                          onClick={() => setFilterTag(tag)}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {library.length === 0 ? (
-                    <div className="cms-empty">
-                      <p className="microlabel">No matches</p>
-                      <p>Try another tag or clear the search.</p>
-                    </div>
-                  ) : (
-                    <div className="cms-list">
-                      {library.map((item) => (
-                        <CmsCard
-                          key={item.id}
-                          item={item}
-                          mode="library"
-                          busy={busy}
-                          onUpdate={(id, tags, description) =>
-                            mutate({ action: "update", id, tags, description })
-                          }
-                          onRemove={(id) => mutate({ action: "remove", id })}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
-            </>
-          )}
+        <p className="wf-sidebar__label">Fields</p>
+        <div className="wf-sidebar__fields">
+          <span>Name</span>
+          <span>Slug</span>
+          <span>Status</span>
+          <span>Description</span>
+          <span>Design tags</span>
+          <span>Media</span>
         </div>
-      </main>
-    </>
+
+        <div className="wf-sidebar__foot">
+          <button
+            type="button"
+            className="wf-btn wf-btn--ghost wf-btn--block"
+            disabled={seeding}
+            onClick={loadDemoData}
+          >
+            {seeding ? "Seeding…" : "Load demo content"}
+          </button>
+          <a className="wf-btn wf-btn--ghost wf-btn--block" href="/" target="_blank" rel="noreferrer">
+            Open site
+          </a>
+          <button type="button" className="wf-btn wf-btn--ghost wf-btn--block" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      <section className="wf-main">
+        <header className="wf-topbar">
+          <div>
+            <p className="wf-kicker">Collection</p>
+            <h1>{collection === "drafts" ? "Drafts" : "Board"}</h1>
+          </div>
+          <div className="wf-topbar__meta">
+            <span>{rows.length} items</span>
+            <span>
+              {Object.keys(stats?.tags || {}).length} tags in use
+            </span>
+          </div>
+        </header>
+
+        <div className="wf-toolbar">
+          <input
+            className="wf-input wf-input--search"
+            type="search"
+            placeholder="Search items…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="wf-filter">
+            {["All", ...DESIGN_TAGS].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={`wf-chip ${filterTag === tag ? "wf-chip--on" : ""}`}
+                onClick={() => setFilterTag(tag)}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error && <p className="wf-error">{error}</p>}
+
+        <div className="wf-table-wrap">
+          <table className="wf-table">
+            <thead>
+              <tr>
+                <th style={{ width: 56 }} />
+                <th>Name</th>
+                <th>Status</th>
+                <th>Tags</th>
+                <th>Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="wf-table__empty">
+                    No items in this collection
+                  </td>
+                </tr>
+              ) : (
+                rows.map((item) => {
+                  const active = selectedId === item.id;
+                  return (
+                    <tr
+                      key={item.id}
+                      className={active ? "wf-row--on" : undefined}
+                      onClick={() => setSelectedId(item.id)}
+                    >
+                      <td>
+                        {item.mediaUrl ? (
+                          <img className="wf-thumb" src={item.mediaUrl} alt="" />
+                        ) : (
+                          <div className="wf-thumb" />
+                        )}
+                      </td>
+                      <td>
+                        <strong>
+                          {item.author ? `@${item.author}` : "Untitled"}
+                        </strong>
+                        <span>{item.description || item.id}</span>
+                      </td>
+                      <td>
+                        <span
+                          className={`wf-status ${
+                            collection === "drafts"
+                              ? "wf-status--draft"
+                              : "wf-status--live"
+                          }`}
+                        >
+                          {collection === "drafts" ? "Draft" : "Published"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="wf-tagline">
+                          {(item.tags || []).length
+                            ? item.tags.map((t) => (
+                                <span key={t} className="wf-chip wf-chip--soft">
+                                  {t}
+                                </span>
+                              ))
+                            : "—"}
+                        </div>
+                      </td>
+                      <td className="wf-muted">
+                        {formatWhen(
+                          item.updatedAt || item.approvedAt || item.submittedAt
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <Inspector
+        item={selected}
+        mode={collection === "drafts" ? "inbox" : "library"}
+        busy={busy}
+        onClose={() => setSelectedId(null)}
+        onApprove={(id, tags, description) =>
+          mutate({ action: "approve", id, tags, description })
+        }
+        onReject={(id) => mutate({ action: "reject", id })}
+        onUpdate={(id, tags, description) =>
+          mutate({ action: "update", id, tags, description })
+        }
+        onRemove={(id) => mutate({ action: "remove", id })}
+      />
+    </div>
   );
 }

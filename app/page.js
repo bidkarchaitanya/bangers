@@ -1,6 +1,5 @@
-import { Suspense } from "react";
 import TweetSubmit from "../components/TweetSubmit";
-import BoardTweet from "../components/BoardTweet";
+import BoardGallery from "../components/BoardGallery";
 import { readStore } from "../lib/store";
 
 export const dynamic = "force-dynamic";
@@ -10,16 +9,19 @@ export const dynamic = "force-dynamic";
 // Approved submissions from /admin are added automatically.
 const SEEDS = [];
 
-function TweetSkeleton() {
-  return <div className="tweet-skeleton" aria-hidden="true" />;
-}
-
 export default async function Page() {
   const store = await readStore();
   const BOARD = [
-    ...SEEDS.map((id) => ({ id, mediaUrl: null, author: null })),
+    ...SEEDS.map((id) => ({
+      id,
+      mediaUrl: null,
+      author: null,
+      tags: [],
+      description: null,
+    })),
     ...store.approved.filter((t) => !SEEDS.includes(t.id)),
   ];
+
   return (
     <>
       <nav className="nav">
@@ -69,25 +71,7 @@ export default async function Page() {
 
       <section className="gallery" id="board">
         <div className="container">
-          <div className="section-head">
-            <h2>The Board</h2>
-            <span className="microlabel">
-              Index / {String(BOARD.length).padStart(3, "0")}
-            </span>
-          </div>
-          <div className="board" data-theme="light">
-            {BOARD.map((t) => (
-              <div className="tweet-wrap" key={t.id}>
-                <Suspense fallback={<TweetSkeleton />}>
-                  <BoardTweet
-                    id={t.id}
-                    mediaUrl={t.mediaUrl}
-                    author={t.author}
-                  />
-                </Suspense>
-              </div>
-            ))}
-          </div>
+          <BoardGallery items={BOARD} />
         </div>
       </section>
 

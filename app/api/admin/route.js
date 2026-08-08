@@ -3,24 +3,48 @@ import {
   readStore,
   writeStore,
   isValidTweetId,
-  checkKey,
+  normalizeItem,
 } from "../../../lib/store";
+import { getSessionAuthed } from "../../../lib/auth";
+import { normalizeDescription, normalizeTags, DESIGN_TAGS } from "../../../lib/tags";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request) {
-  const key = new URL(request.url).searchParams.get("key");
-  if (!checkKey(key)) {
-    return NextResponse.json({ error: "Wrong passcode" }, { status: 401 });
+async function requireAuth() {
+  return getSessionAuthed();
+}
+
+export async function GET() {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
   const store = await readStore();
+  const tagCounts = {};
+  for (const t of store.approved) {
+    for (const tag of t.tags || []) {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    }
+  }
+
   return NextResponse.json({
     pending: store.pending,
     approved: store.approved,
+    stats: {
+      pending: store.pending.length,
+      approved: store.approved.length,
+      rejected: store.rejected.length,
+      tags: tagCounts,
+    },
+    taxonomy: DESIGN_TAGS,
   });
 }
 
 export async function POST(request) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let body;
   try {
     body = await request.json();
@@ -28,34 +52,59 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  if (!checkKey(body?.key)) {
-    return NextResponse.json({ error: "Wrong passcode" }, { status: 401 });
-  }
-
   const id = String(body?.id || "");
   const action = body?.action;
-  if (!isValidTweetId(id) || !["approve", "reject", "remove"].includes(action)) {
+  const allowed = ["approve", "reject", "remove", "update"];
+  if (!isValidTweetId(id) || !allowed.includes(action)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  const tags = normalizeTags(body?.tags);
+  const description = normalizeDescription(body?.description);
   const store = await readStore();
-  const fromPending = store.pending.find((t) => t.id === id);
-  store.pending = store.pending.filter((t) => t.id !== id);
+  const now = new Date().toISOString();
 
   if (action === "approve") {
+    const fromPending = store.pending.find((t) => t.id === id);
+    if (!fromPending) {
+      return NextResponse.json(
+        { error: "Submission not found in inbox" },
+        { status: 404 }
+      );
+    }
+    store.pending = store.pending.filter((t) => t.id !== id);
     if (!store.approved.some((t) => t.id === id)) {
-      store.approved.push({
-        id,
-        mediaUrl: fromPending?.mediaUrl || null,
-        author: fromPending?.author || null,
-        submittedAt: fromPending?.submittedAt || new Date().toISOString(),
-        approvedAt: new Date().toISOString(),
-      });
+      store.approved.unshift(
+        normalizeItem({
+          ...fromPending,
+          tags,
+          description,
+          approvedAt: now,
+          updatedAt: now,
+        })
+      );
     }
   } else if (action === "reject") {
-    store.rejected.push({ id, rejectedAt: new Date().toISOString() });
+    store.pending = store.pending.filter((t) => t.id !== id);
+    if (!store.rejected.some((t) => t.id === id)) {
+      store.rejected.push(normalizeItem({ id, rejectedAt: now }));
+    }
   } else if (action === "remove") {
     store.approved = store.approved.filter((t) => t.id !== id);
+  } else if (action === "update") {
+    const idx = store.approved.findIndex((t) => t.id === id);
+    if (idx === -1) {
+      return NextResponse.json(
+        { error: "Item not found on the board" },
+        { status: 404 }
+      );
+    }
+    store.approved[idx] = normalizeItem({
+      ...store.approved[idx],
+      tags,
+      description,
+      updatedAt: now,
+    });
   }
 
   try {
@@ -66,5 +115,6 @@ export async function POST(request) {
       { status: 500 }
     );
   }
+
   return NextResponse.json({ ok: true });
 }

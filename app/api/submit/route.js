@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { readStore, writeStore, isValidTweetId } from "../../../lib/store";
+import {
+  readStore,
+  writeStore,
+  isValidTweetId,
+  normalizeItem,
+} from "../../../lib/store";
 import { checkTweetImage } from "../../../lib/tweets";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +39,14 @@ export async function POST(request) {
     return NextResponse.json({ status: "already-submitted" });
   }
 
-  store.pending.push({
-    id,
-    mediaUrl: check.mediaUrl || null,
-    author: check.author || null,
-    submittedAt: new Date().toISOString(),
-  });
+  store.pending.push(
+    normalizeItem({
+      id,
+      mediaUrl: check.mediaUrl || null,
+      author: check.author || null,
+      submittedAt: new Date().toISOString(),
+    })
+  );
   try {
     await writeStore(store);
   } catch {

@@ -189,6 +189,7 @@ export default function AdminPage() {
   const [query, setQuery] = useState("");
   const [filterTag, setFilterTag] = useState("All");
   const [booting, setBooting] = useState(true);
+  const [seeding, setSeeding] = useState(false);
 
   async function load() {
     const res = await fetch("/api/admin", { credentials: "same-origin" });
@@ -258,6 +259,27 @@ export default function AdminPage() {
       setError(err.message);
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function loadDemoData() {
+    setSeeding(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "seed-demo" }),
+      });
+      const json = await readJson(res);
+      if (!res.ok) throw new Error(json.error || "Couldn't load demo data");
+      await load();
+      setTab(json.addedPending > 0 ? "inbox" : "library");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -372,6 +394,14 @@ export default function AdminPage() {
                     Curate visual tweets, classify by design discipline, and ship
                     to production with notes your clients can understand.
                   </p>
+                  <button
+                    className="btn-ghost cms-demo-btn"
+                    type="button"
+                    disabled={seeding}
+                    onClick={loadDemoData}
+                  >
+                    {seeding ? "Loading demo…" : "Load demo content"}
+                  </button>
                 </div>
                 <div className="cms-stats">
                   <div className="cms-stat">

@@ -6,12 +6,33 @@ import {
   normalizeItem,
 } from "../../../lib/store";
 import { getSessionAuthed } from "../../../lib/auth";
-import { normalizeDescription, normalizeTags, DESIGN_TAGS } from "../../../lib/tags";
+import {
+  normalizeDescription,
+  normalizeTags,
+  DESIGN_TAGS,
+} from "../../../lib/tags";
+import { DEMO_APPROVED, DEMO_PENDING } from "../../../lib/demo-content";
+import { checkTweetImage } from "../../../lib/tweets";
 
 export const dynamic = "force-dynamic";
 
 async function requireAuth() {
   return getSessionAuthed();
+}
+
+async function hydrateDemoItem(item, { approved = false } = {}) {
+  const check = await checkTweetImage(item.id);
+  const now = new Date().toISOString();
+  return normalizeItem({
+    id: item.id,
+    author: check.ok ? check.author || item.author : item.author,
+    mediaUrl: check.ok ? check.mediaUrl : null,
+    tags: item.tags,
+    description: item.description,
+    submittedAt: now,
+    approvedAt: approved ? now : null,
+    updatedAt: approved ? now : null,
+  });
 }
 
 export async function GET() {
@@ -52,8 +73,71 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const id = String(body?.id || "");
   const action = body?.action;
+  const store = await readStore();
+  const now = new Date().toISOString();
+
+  if (action === "seed-demo") {
+    const known = new Set([
+      ...store.pending.map((t) => t.id),
+      ...store.approved.map((t) => t.id),
+      ...store.rejected.map((t) => t.id),
+    ]);
+
+    let addedApproved = 0;
+    let addedPending = 0;
+    let updated = 0;
+
+    for (const demo of DEMO_APPROVED) {
+      const existingIdx = store.approved.findIndex((t) => t.id === demo.id);
+      const hydrated = await hydrateDemoItem(demo, { approved: true });
+      if (!hydrated.mediaUrl) continue;
+
+      if (existingIdx >= 0) {
+        store.approved[existingIdx] = normalizeItem({
+          ...store.approved[existingIdx],
+          ...hydrated,
+          tags: normalizeTags(demo.tags),
+          description: normalizeDescription(demo.description),
+          updatedAt: now,
+        });
+        updated += 1;
+      } else if (!known.has(demo.id)) {
+        store.approved.unshift(hydrated);
+        known.add(demo.id);
+        addedApproved += 1;
+      }
+      // remove from pending if it was sitting there
+      store.pending = store.pending.filter((t) => t.id !== demo.id);
+    }
+
+    for (const demo of DEMO_PENDING) {
+      if (known.has(demo.id)) continue;
+      const hydrated = await hydrateDemoItem(demo, { approved: false });
+      if (!hydrated.mediaUrl) continue;
+      store.pending.unshift(hydrated);
+      known.add(demo.id);
+      addedPending += 1;
+    }
+
+    try {
+      await writeStore(store);
+    } catch {
+      return NextResponse.json(
+        { error: "Couldn't save demo data. Try again." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      addedApproved,
+      addedPending,
+      updated,
+    });
+  }
+
+  const id = String(body?.id || "");
   const allowed = ["approve", "reject", "remove", "update"];
   if (!isValidTweetId(id) || !allowed.includes(action)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -61,8 +145,6 @@ export async function POST(request) {
 
   const tags = normalizeTags(body?.tags);
   const description = normalizeDescription(body?.description);
-  const store = await readStore();
-  const now = new Date().toISOString();
 
   if (action === "approve") {
     const fromPending = store.pending.find((t) => t.id === id);

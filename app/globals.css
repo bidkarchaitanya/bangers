@@ -900,6 +900,10 @@ button {
   font-size: 15px;
 }
 
+.cms-demo-btn {
+  margin-top: 18px;
+}
+
 .cms-stats {
   display: flex;
   gap: 12px;

@@ -137,6 +137,79 @@ export async function POST(request) {
     });
   }
 
+  if (action === "create") {
+    const id = String(body?.id || "");
+    if (!isValidTweetId(id)) {
+      return NextResponse.json({ error: "Invalid tweet ID" }, { status: 400 });
+    }
+
+    const tags = normalizeTags(body?.tags);
+    const description = normalizeDescription(body?.description);
+    const publish = Boolean(body?.publish);
+
+    if (publish && tags.length === 0) {
+      return NextResponse.json(
+        { error: "Pick at least one design tag to publish" },
+        { status: 400 }
+      );
+    }
+
+    if (store.approved.some((t) => t.id === id)) {
+      return NextResponse.json(
+        { error: "Already published on the board" },
+        { status: 409 }
+      );
+    }
+    if (store.pending.some((t) => t.id === id)) {
+      return NextResponse.json(
+        { error: "Already in Drafts" },
+        { status: 409 }
+      );
+    }
+
+    const check = await checkTweetImage(id);
+    if (!check.ok) {
+      return NextResponse.json({ error: check.error }, { status: 404 });
+    }
+    if (!check.hasImage) {
+      return NextResponse.json(
+        { error: "Only tweets with images or videos can be added" },
+        { status: 422 }
+      );
+    }
+
+    store.rejected = store.rejected.filter((t) => t.id !== id);
+
+    const item = normalizeItem({
+      id,
+      mediaUrl: check.mediaUrl || null,
+      author: check.author || null,
+      tags,
+      description,
+      submittedAt: now,
+      approvedAt: publish ? now : null,
+      updatedAt: now,
+    });
+
+    if (publish) store.approved.unshift(item);
+    else store.pending.unshift(item);
+
+    try {
+      await writeStore(store);
+    } catch {
+      return NextResponse.json(
+        { error: "Couldn't save item. Try again." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      id,
+      status: publish ? "published" : "draft",
+    });
+  }
+
   const id = String(body?.id || "");
   const allowed = ["approve", "reject", "remove", "update"];
   if (!isValidTweetId(id) || !allowed.includes(action)) {

@@ -1037,6 +1037,14 @@ button {
   margin-bottom: 18px;
 }
 
+.wf-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .wf-topbar h1 {
   font-size: 28px;
   font-weight: 600;
@@ -1048,6 +1056,83 @@ button {
   gap: 14px;
   color: var(--wf-muted);
   font-size: 13px;
+}
+
+.wf-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.wf-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.62);
+  cursor: pointer;
+}
+
+.wf-modal__panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(90vh, 820px);
+  overflow: auto;
+  background: var(--wf-panel);
+  border: 1px solid var(--wf-line);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.wf-modal__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.wf-modal__head h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.wf-modal__form,
+.wf-modal__preview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wf-modal__preview img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #2a2a2e;
+}
+
+.wf-inline {
+  display: flex;
+  gap: 8px;
+}
+
+.wf-inline .wf-input {
+  flex: 1;
+}
+
+.wf-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
 }
 
 .wf-kicker {

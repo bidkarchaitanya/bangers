@@ -33,6 +33,197 @@ function formatWhen(iso) {
   }
 }
 
+function parseTweetId(input) {
+  const raw = input.trim();
+  if (/^\d{1,25}$/.test(raw)) return raw;
+  const m = raw.match(/(?:twitter\.com|x\.com)\/[^/]+\/status(?:es)?\/(\d+)/i);
+  return m ? m[1] : null;
+}
+
+function AddItemModal({ open, onClose, onCreated }) {
+  const [url, setUrl] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [tags, setTags] = useState([]);
+  const [description, setDescription] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!open) {
+      setUrl("");
+      setPreview(null);
+      setTags([]);
+      setDescription("");
+      setError(null);
+      setChecking(false);
+      setSaving(false);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  async function pullPreview(e) {
+    e.preventDefault();
+    const id = parseTweetId(url);
+    if (!id) {
+      setError("Paste a tweet link like https://x.com/user/status/123…");
+      setPreview(null);
+      return;
+    }
+    setChecking(true);
+    setError(null);
+    setPreview(null);
+    try {
+      const res = await fetch(`/api/tweet-check?id=${id}`);
+      const json = await readJson(res);
+      if (!res.ok) throw new Error(json.error || "Couldn't verify that tweet");
+      if (!json.hasImage) {
+        throw new Error("Only tweets with images or videos can be added.");
+      }
+      setPreview({
+        id,
+        author: json.author || null,
+        mediaUrl: json.mediaUrl || null,
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function save(publish) {
+    if (!preview?.id) return;
+    if (publish && tags.length === 0) {
+      setError("Pick at least one design tag to publish.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          action: "create",
+          id: preview.id,
+          tags,
+          description,
+          publish,
+        }),
+      });
+      const json = await readJson(res);
+      if (!res.ok) throw new Error(json.error || "Couldn't add item");
+      onCreated({
+        id: preview.id,
+        status: json.status,
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="wf-modal" role="dialog" aria-modal="true" aria-label="New item">
+      <button type="button" className="wf-modal__backdrop" aria-label="Close" onClick={onClose} />
+      <div className="wf-modal__panel">
+        <header className="wf-modal__head">
+          <div>
+            <p className="wf-kicker">New item</p>
+            <h2>Add to CMS</h2>
+          </div>
+          <button type="button" className="wf-iconbtn" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </header>
+
+        <form className="wf-modal__form" onSubmit={pullPreview}>
+          <label className="wf-field">
+            <span>Tweet URL</span>
+            <div className="wf-inline">
+              <input
+                className="wf-input"
+                type="url"
+                placeholder="https://x.com/user/status/1234567890"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                autoFocus
+              />
+              <button className="wf-btn" type="submit" disabled={checking || !url.trim()}>
+                {checking ? "Checking…" : "Fetch"}
+              </button>
+            </div>
+          </label>
+        </form>
+
+        {preview && (
+          <div className="wf-modal__preview">
+            {preview.mediaUrl ? (
+              <img src={preview.mediaUrl} alt="" />
+            ) : (
+              <div className="wf-thumb wf-thumb--lg" />
+            )}
+            <div className="wf-fields">
+              <label className="wf-field">
+                <span>Name</span>
+                <input
+                  className="wf-input"
+                  readOnly
+                  value={preview.author ? `@${preview.author}` : "Untitled"}
+                />
+              </label>
+              <label className="wf-field">
+                <span>Description</span>
+                <textarea
+                  className="wf-textarea"
+                  rows={3}
+                  maxLength={280}
+                  placeholder="Optional curator note…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+              </label>
+              <div className="wf-field">
+                <span>Design tags</span>
+                <TagPicker selected={tags} onChange={setTags} disabled={saving} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && <p className="wf-error">{error}</p>}
+
+        <footer className="wf-modal__foot">
+          <button type="button" className="wf-btn" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="wf-btn"
+            disabled={!preview || saving}
+            onClick={() => save(false)}
+          >
+            {saving ? "Saving…" : "Save draft"}
+          </button>
+          <button
+            type="button"
+            className="wf-btn wf-btn--primary"
+            disabled={!preview || saving || tags.length === 0}
+            onClick={() => save(true)}
+          >
+            {saving ? "Publishing…" : "Publish"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function TagPicker({ selected, onChange, disabled }) {
   function toggle(tag) {
     if (selected.includes(tag)) onChange(selected.filter((t) => t !== tag));
@@ -226,6 +417,7 @@ export default function AdminPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [booting, setBooting] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   async function load() {
     const res = await fetch("/api/admin", { credentials: "same-origin" });
@@ -468,11 +660,23 @@ export default function AdminPage() {
             <p className="wf-kicker">Collection</p>
             <h1>{collection === "drafts" ? "Drafts" : "Board"}</h1>
           </div>
-          <div className="wf-topbar__meta">
-            <span>{rows.length} items</span>
-            <span>
-              {Object.keys(stats?.tags || {}).length} tags in use
-            </span>
+          <div className="wf-topbar__actions">
+            <div className="wf-topbar__meta">
+              <span>{rows.length} items</span>
+              <span>
+                {Object.keys(stats?.tags || {}).length} tags in use
+              </span>
+            </div>
+            <button
+              type="button"
+              className="wf-btn wf-btn--primary"
+              onClick={() => {
+                setSelectedId(null);
+                setAdding(true);
+              }}
+            >
+              + New item
+            </button>
           </div>
         </header>
 
@@ -589,6 +793,17 @@ export default function AdminPage() {
           mutate({ action: "update", id, tags, description })
         }
         onRemove={(id) => mutate({ action: "remove", id })}
+      />
+
+      <AddItemModal
+        open={adding}
+        onClose={() => setAdding(false)}
+        onCreated={({ id, status }) => {
+          load().then(() => {
+            setCollection(status === "published" ? "published" : "drafts");
+            setSelectedId(id);
+          });
+        }}
       />
     </div>
   );

@@ -1375,7 +1375,7 @@ button {
   text-transform: uppercase;
 }
 
-.wf-chip:hover:not(:disabled) {
+.wf-chip:hover:not(:disabled):not(.wf-chip--on) {
   color: var(--wf-text);
   border-color: rgba(255, 255, 255, 0.2);
 }
@@ -1383,6 +1383,12 @@ button {
 .wf-chip--on {
   background: var(--wf-text);
   border-color: var(--wf-text);
+  color: #111;
+}
+
+.wf-chip--on:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
   color: #111;
 }
 

@@ -96,13 +96,8 @@ export default async function Page() {
           <span className="footer__mark">
             Bangers<span style={{ color: "var(--red)" }}>.</span>
           </span>
-          <a
-            className="nav__link"
-            href="https://twitter.com/kizo"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Built by Kizo Design
+          <a className="nav__link" href="/blogs">
+            Blog
           </a>
           <span className="microlabel">© 2026 / All picks final</span>
         </div>

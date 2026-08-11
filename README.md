@@ -1,6 +1,6 @@
 # Bangers
 
-An inspiration board of the best of design Twitter. Nothing-inspired design language: dot-matrix display type (Doto), Geist body, off-white canvas, single red accent. Built by Kizo Design.
+An inspiration board of the best of design Twitter. Nothing-inspired design language: dot-matrix display type (Doto), Geist body, off-white canvas, single red accent.
 
 ## Pages
 

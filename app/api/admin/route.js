@@ -51,10 +51,14 @@ export async function GET() {
   return NextResponse.json({
     pending: store.pending,
     approved: store.approved,
+    blogs: store.blogs || [],
     stats: {
       pending: store.pending.length,
       approved: store.approved.length,
       rejected: store.rejected.length,
+      blogs: (store.blogs || []).length,
+      blogPublished: (store.blogs || []).filter((b) => b.status === "published")
+        .length,
       tags: tagCounts,
     },
     taxonomy: DESIGN_TAGS,

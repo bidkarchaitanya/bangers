@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DESIGN_TAGS } from "../../lib/tags";
+import BlogsDesk from "../../components/cms/BlogsDesk";
 
 async function readJson(res) {
   const text = await res.text();
@@ -408,6 +409,7 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [pending, setPending] = useState([]);
   const [approved, setApproved] = useState([]);
+  const [blogs, setBlogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -429,6 +431,7 @@ export default function AdminPage() {
     if (!res.ok) throw new Error(json.error || "Failed to load");
     setPending(json.pending || []);
     setApproved(json.approved || []);
+    setBlogs(json.blogs || []);
     setStats(json.stats || null);
     setAuthed(true);
     return true;
@@ -467,6 +470,7 @@ export default function AdminPage() {
     setAuthed(false);
     setPending([]);
     setApproved([]);
+    setBlogs([]);
     setStats(null);
     setSelectedId(null);
   }
@@ -498,16 +502,26 @@ export default function AdminPage() {
     setSeeding(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin", {
+      const tweetRes = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({ action: "seed-demo" }),
       });
-      const json = await readJson(res);
-      if (!res.ok) throw new Error(json.error || "Couldn't load demo data");
+      const tweetJson = await readJson(tweetRes);
+      if (!tweetRes.ok) throw new Error(tweetJson.error || "Couldn't load demo tweets");
+
+      const blogRes = await fetch("/api/admin/blogs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "seed-demo" }),
+      });
+      const blogJson = await readJson(blogRes);
+      if (!blogRes.ok) throw new Error(blogJson.error || "Couldn't load demo blogs");
+
       await load();
-      setCollection(json.addedPending > 0 ? "drafts" : "published");
+      setCollection("blogs");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -624,16 +638,42 @@ export default function AdminPage() {
             <span>Drafts</span>
             <em>{pending.length}</em>
           </button>
+          <button
+            type="button"
+            className={`wf-nav__item ${collection === "blogs" ? "wf-nav__item--on" : ""}`}
+            onClick={() => {
+              setCollection("blogs");
+              setSelectedId(null);
+              setAdding(false);
+            }}
+          >
+            <span>Blog posts</span>
+            <em>{blogs.length}</em>
+          </button>
         </nav>
 
         <p className="wf-sidebar__label">Fields</p>
         <div className="wf-sidebar__fields">
-          <span>Name</span>
-          <span>Slug</span>
-          <span>Status</span>
-          <span>Description</span>
-          <span>Design tags</span>
-          <span>Media</span>
+          {collection === "blogs" ? (
+            <>
+              <span>Title</span>
+              <span>Slug</span>
+              <span>Status</span>
+              <span>Cover</span>
+              <span>Excerpt</span>
+              <span>Body</span>
+              <span>Tags</span>
+            </>
+          ) : (
+            <>
+              <span>Name</span>
+              <span>Slug</span>
+              <span>Status</span>
+              <span>Description</span>
+              <span>Design tags</span>
+              <span>Media</span>
+            </>
+          )}
         </div>
 
         <div className="wf-sidebar__foot">
@@ -654,6 +694,20 @@ export default function AdminPage() {
         </div>
       </aside>
 
+        {error && (
+          <p className="wf-error wf-error--banner">{error}</p>
+        )}
+
+        {collection === "blogs" ? (
+          <BlogsDesk
+            blogs={blogs}
+            busyId={busy}
+            onBusy={setBusy}
+            onReload={load}
+            onError={setError}
+          />
+        ) : (
+          <div className="wf-tweets" style={{ display: "contents" }}>
       <section className="wf-main">
         <header className="wf-topbar">
           <div>
@@ -805,6 +859,8 @@ export default function AdminPage() {
           });
         }}
       />
+          </div>
+        )}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { readStore } from "../../../lib/store";
-import { DEMO_BLOGS } from "../../../lib/blogs";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +18,12 @@ function renderBody(body) {
   });
 }
 
-function findPublished(blogs, slug) {
-  return (blogs || []).find((b) => b.slug === slug && b.status === "published");
-}
-
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const store = await readStore();
-  const post =
-    findPublished(store.blogs, slug) || findPublished(DEMO_BLOGS, slug);
+  const post = (store.blogs || []).find(
+    (b) => b.slug === slug && b.status === "published"
+  );
   if (!post) return { title: "Post not found" };
   return {
     title: `${post.title} — Bangers`,
@@ -38,8 +34,9 @@ export async function generateMetadata({ params }) {
 export default async function BlogPostPage({ params }) {
   const { slug } = await params;
   const store = await readStore();
-  const post =
-    findPublished(store.blogs, slug) || findPublished(DEMO_BLOGS, slug);
+  const post = (store.blogs || []).find(
+    (b) => b.slug === slug && b.status === "published"
+  );
   if (!post) notFound();
 
   return (

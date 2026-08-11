@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { readStore } from "../../lib/store";
-import { DEMO_BLOGS } from "../../lib/blogs";
 
 export const dynamic = "force-dynamic";
 
@@ -9,20 +8,15 @@ export const metadata = {
   description: "Notes on craft, product, and design curation from the Bangers desk.",
 };
 
-function publishedFrom(blogs) {
-  return (blogs || [])
+export default async function BlogsPage() {
+  const store = await readStore();
+  const posts = (store.blogs || [])
     .filter((b) => b.status === "published")
     .sort((a, b) =>
       String(b.publishedAt || b.updatedAt || "").localeCompare(
         String(a.publishedAt || a.updatedAt || "")
       )
     );
-}
-
-export default async function BlogsPage() {
-  const store = await readStore();
-  const fromStore = publishedFrom(store.blogs);
-  const posts = fromStore.length > 0 ? fromStore : publishedFrom(DEMO_BLOGS);
 
   return (
     <>

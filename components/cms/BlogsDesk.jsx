@@ -170,7 +170,7 @@ function BlogInspector({ item, busy, onClose, onSave, onRemove }) {
           <input
             className="wf-input"
             value={coverUrl}
-            placeholder="https://…"
+            placeholder="/blog/craft.jpg or https://…"
             disabled={isBusy}
             onChange={(e) => {
               setCoverUrl(e.target.value);

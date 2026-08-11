@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { readStore, writeStore } from "../../../../lib/store";
 import { getSessionAuthed } from "../../../../lib/auth";
-import { normalizeBlog, slugify, DEMO_BLOGS } from "../../../../lib/blogs";
+import { normalizeBlog, slugify, upsertDemoBlogs } from "../../../../lib/blogs";
 import { normalizeTags } from "../../../../lib/tags";
 
 export const dynamic = "force-dynamic";
@@ -46,31 +46,8 @@ export async function POST(request) {
   const now = new Date().toISOString();
 
   if (action === "seed-demo") {
-    let added = 0;
-    let updated = 0;
-    for (const demo of DEMO_BLOGS) {
-      const idx = blogs.findIndex((b) => b.id === demo.id || b.slug === demo.slug);
-      const next = normalizeBlog({
-        ...demo,
-        createdAt: now,
-        updatedAt: now,
-        publishedAt: demo.status === "published" ? now : null,
-      });
-      if (idx >= 0) {
-        blogs[idx] = normalizeBlog({
-          ...blogs[idx],
-          ...next,
-          id: blogs[idx].id,
-          createdAt: blogs[idx].createdAt || now,
-          updatedAt: now,
-        });
-        updated += 1;
-      } else {
-        blogs.unshift(next);
-        added += 1;
-      }
-    }
-    store.blogs = blogs;
+    const result = upsertDemoBlogs(blogs, now);
+    store.blogs = result.blogs;
     try {
       await writeStore(store);
     } catch {
@@ -79,7 +56,11 @@ export async function POST(request) {
         { status: 500 }
       );
     }
-    return NextResponse.json({ ok: true, added, updated });
+    return NextResponse.json({
+      ok: true,
+      added: result.added,
+      updated: result.updated,
+    });
   }
 
   if (action === "create") {

@@ -13,6 +13,7 @@ import {
 } from "../../../lib/tags";
 import { DEMO_APPROVED, DEMO_PENDING } from "../../../lib/demo-content";
 import { checkTweetImage } from "../../../lib/tweets";
+import { upsertDemoBlogs } from "../../../lib/blogs";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,9 @@ export async function POST(request) {
       addedPending += 1;
     }
 
+    const blogSeed = upsertDemoBlogs(store.blogs || [], now);
+    store.blogs = blogSeed.blogs;
+
     try {
       await writeStore(store);
     } catch {
@@ -138,6 +142,8 @@ export async function POST(request) {
       addedApproved,
       addedPending,
       updated,
+      blogsAdded: blogSeed.added,
+      blogsUpdated: blogSeed.updated,
     });
   }
 

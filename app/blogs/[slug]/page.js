@@ -5,17 +5,38 @@ import { readStore } from "../../../lib/store";
 export const dynamic = "force-dynamic";
 
 function renderBody(body) {
-  const blocks = String(body || "")
-    .split(/\n{2,}/)
-    .map((b) => b.trim())
-    .filter(Boolean);
+  const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
+  const blocks = [];
+  let paragraph = [];
 
-  return blocks.map((block, i) => {
-    if (block.startsWith("## ")) {
-      return <h2 key={i}>{block.replace(/^##\s+/, "")}</h2>;
+  function flushParagraph() {
+    const text = paragraph.join(" ").replace(/\s+/g, " ").trim();
+    paragraph = [];
+    if (text) blocks.push({ type: "p", text });
+  }
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^##\s+/.test(line.trim())) {
+      flushParagraph();
+      blocks.push({ type: "h2", text: line.trim().replace(/^##\s+/, "").trim() });
+      continue;
     }
-    return <p key={i}>{block}</p>;
-  });
+    if (!line.trim()) {
+      flushParagraph();
+      continue;
+    }
+    paragraph.push(line.trim());
+  }
+  flushParagraph();
+
+  return blocks.map((block, i) =>
+    block.type === "h2" ? (
+      <h2 key={i}>{block.text}</h2>
+    ) : (
+      <p key={i}>{block.text}</p>
+    )
+  );
 }
 
 export async function generateMetadata({ params }) {
